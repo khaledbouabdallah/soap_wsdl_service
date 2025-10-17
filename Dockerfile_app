@@ -1,0 +1,23 @@
+# Dockerfile_app
+# Used for all Python-based application services (Orchestrator, Business, CRUD)
+
+FROM python:3.10-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Install project dependencies
+COPY pyproject.toml /app/
+# We use uv to respect your setup, otherwise pip install .
+RUN pip install --no-cache-dir poetry && \ 
+    poetry install --no-root --only main 
+
+# Copy the entire application code
+COPY . /app
+
+# Expose the port where services will run (e.g., Twisted Web server)
+# The Orchestrator will be publicly accessible on this port
+EXPOSE 8000
+
+# We don't define CMD here. CMD will be defined in docker-compose.yml
+# to specify which service (orchestrator, business_logic, crud) should run.

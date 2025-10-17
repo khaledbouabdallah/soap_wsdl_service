@@ -1,0 +1,73 @@
+services:
+
+  # Container 1: PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: solvency_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Optional: persistent storage for data
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck: # Ensures the database is ready before app services start
+      test: ["CMD-SHELL", "pg_isready -U user -d solvency_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Container 2: Orchestration Service (Public SOAP Gateway)
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile_app # Use the common app Dockerfile
+    container_name: solvency_orchestrator
+    # COMMAND will start the Spyne server for SolvencyVerificationService
+    command: python services/orchestration/run_orchestrator.py
+    ports:
+      - "8000:8000" # Publicly expose the WSDL endpoint
+    environment:
+      # Database connection for future features (e.g., logging)
+      DATABASE_URL: postgresql://user:password@db:5432/solvency_db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+  # Container 3: Business Logic Services (Internal Computation)
+  business:
+    build:
+      context: .
+      dockerfile: Dockerfile_app
+    container_name: solvency_business
+    # COMMAND starts an internal server (e.g., lightweight Twisted/HTTP) 
+    # if services communicate over network, OR it can be run as a utility 
+    # container for simplicity if Orchestrator calls them locally.
+    # For a mini-project, we run them as a utility container:
+    command: python services/business_logic/run_business_logic.py
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/solvency_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Container 4: CRUD/Data Access Services (Internal Data Layer)
+  crud:
+    build:
+      context: .
+      dockerfile: Dockerfile_app
+    container_name: solvency_crud
+    # COMMAND starts the internal CRUD server/utility
+    command: python services/crud/run_crud_services.py
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/solvency_db
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
