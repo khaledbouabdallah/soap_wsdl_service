@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="urn:solvency.verification.service:datatypes:v1"
+            xmlns:tns="urn:solvency.verification.service:datatypes:v1"
+            elementFormDefault="qualified">
+
+    <xsd:simpleType name="ClientId">
+        <xsd:restriction base="xsd:string">
+            <xsd:pattern value="client-\d{3}"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:complexType name="ClientIdentity">
+        <xsd:sequence>
+            <xsd:element name="name" type="xsd:string"/>
+            <xsd:element name="address" type="xsd:string"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="Financials">
+        <xsd:sequence>
+            <xsd:element name="monthlyIncome">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:decimal">
+                        <xsd:minInclusive value="0"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="monthlyExpenses">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:decimal">
+                        <xsd:minInclusive value="0"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="CreditHistory">
+        <xsd:sequence>
+            <xsd:element name="debt">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:decimal">
+                        <xsd:minInclusive value="0"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="latePayments" type="xsd:nonNegativeInteger"/>
+            <xsd:element name="hasBankruptcy" type="xsd:boolean"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:simpleType name="CreditScore">
+        <xsd:restriction base="xsd:integer">
+            <xsd:minInclusive value="0"/>
+            <xsd:maxInclusive value="1000"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="SolvencyStatus">
+        <xsd:restriction base="xsd:string">
+            <xsd:enumeration value="solvent"/>
+            <xsd:enumeration value="not_solvent"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:complexType name="Explanations">
+        <xsd:sequence>
+            <xsd:element name="creditScoreExplanation">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:minLength value="1"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="incomeVsExpensesExplanation">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:minLength value="1"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="creditHistoryExplanation">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:minLength value="1"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </element>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="SolvencyReport">
+        <xsd:sequence>
+            <xsd:element name="clientIdentity" type="tns:ClientIdentity"/>
+            <xsd:element name="financials" type="tns:Financials"/>
+            <xsd:element name="creditHistory" type="tns:CreditHistory"/>
+            <xsd:element name="creditScore" type="tns:CreditScore"/>
+            <xsd:element name="solvencyStatus" type="tns:SolvencyStatus"/>
+            <xsd:element name="explanations" type="tns:Explanations"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+</xsd:schema>
