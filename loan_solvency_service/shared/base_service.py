@@ -59,7 +59,7 @@ def validate_client_id(client_id):
     pattern = r'^client-\d{3}$'
     if not re.match(pattern, client_id):
         raise ClientValidationError(
-            faultstring=f"Invalid client ID format: '{client_id}'. "
+            detail=f"Invalid client ID format: '{client_id}'. "
                        f"Expected pattern: client-XXX (where XXX is 3 digits)"
         )
 
