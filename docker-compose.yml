@@ -2,7 +2,7 @@ services:
 
   # Container 1: PostgreSQL Database
   db:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     container_name: postgres_db
     environment:
       POSTGRES_USER: user
@@ -27,7 +27,7 @@ services:
       dockerfile: Dockerfile_app # Use the common app Dockerfile
     container_name: solvency_orchestrator
     # COMMAND will start the Spyne server for SolvencyVerificationService
-    command: python services/orchestration/run_orchestrator.py
+    command: python loan_solvency_service/services/orchestration/run_orchestrator.py
     ports:
       - "8000:8000" # Publicly expose the WSDL endpoint
     environment:
@@ -48,7 +48,7 @@ services:
     # if services communicate over network, OR it can be run as a utility 
     # container for simplicity if Orchestrator calls them locally.
     # For a mini-project, we run them as a utility container:
-    command: python services/business_logic/run_business_logic.py
+    command: python loan_solvency_service/services/business_logic/run_business_logic.py
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/solvency_db
     depends_on:
@@ -62,7 +62,7 @@ services:
       dockerfile: Dockerfile_app
     container_name: solvency_crud
     # COMMAND starts the internal CRUD server/utility
-    command: python services/crud/run_crud_services.py
+    command: python loan_solvency_service/services/crud/run_crud_services.py
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/solvency_db
     depends_on:

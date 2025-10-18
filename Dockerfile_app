@@ -1,23 +1,29 @@
-# Dockerfile_app
-# Used for all Python-based application services (Orchestrator, Business, CRUD)
+# Dockerfile (at the project root)
 
+# 1. Base image (using python:3.10 as an example)
 FROM python:3.10-slim
 
-# Set the working directory
-WORKDIR /app
+# 2. Set the working directory for the application inside the container
+WORKDIR /usr/src/app
 
-# Install project dependencies
-COPY pyproject.toml /app/
-# We use uv to respect your setup, otherwise pip install .
-RUN pip install --no-cache-dir poetry && \ 
-    poetry install --no-root --only main 
+# 3. Copy the dependency file and install dependencies (caching layer)
+# Note: You need a requirements file or a way to install dependencies from pyproject.toml
+COPY pyproject.toml .
+# Install UV inside the container to handle installation
+RUN pip install uv
+# Install the project's dependencies
+RUN uv pip install twisted lxml spyne sqlalchemy psycopg2-binary pydantic --system
 
-# Copy the entire application code
-COPY . /app
+# 4. Copy the entire source code into the working directory
+# This includes the solvency_checker/ directory, contracts/, etc.
+COPY . .
 
-# Expose the port where services will run (e.g., Twisted Web server)
-# The Orchestrator will be publicly accessible on this port
-EXPOSE 8000
+# 5. E-INSTALL THE PACKAGE INSIDE THE CONTAINER
+# This step creates the necessary .pth files so Python knows the location 
+# of your 'solvency_checker' package when running scripts from different directories.
+RUN uv pip install -e . --system
+# The -e . command here should succeed because you fixed pyproject.toml earlier.
+# If you changed the package name to 'solvency_checker', the command remains -e .
 
-# We don't define CMD here. CMD will be defined in docker-compose.yml
-# to specify which service (orchestrator, business_logic, crud) should run.
+# 6. Command to run a specific service (this will be overridden in docker-compose)
+# CMD ["python3", "-m", "solvency_checker.services.orchestration.run_orchestrator"]
