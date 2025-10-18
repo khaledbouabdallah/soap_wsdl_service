@@ -1,5 +1,5 @@
 from spyne.decorator import srpc
-from loan_solvency_service.shared.base_service import SoaServiceBase, ClientNotFoundFault
+from loan_solvency_service.shared.base_service import ClientValidationError, SoaServiceBase, ClientNotFoundFault
 from loan_solvency_service.shared.datamodels import ClientId, SolvencyReport
 
 # Import CRUD services
@@ -18,7 +18,7 @@ class SolvencyVerificationService(SoaServiceBase):
     Coordinates all CRUD and business logic services to produce a complete SolvencyReport.
     """
     
-    @srpc(ClientId, _returns=SolvencyReport)
+    @srpc(ClientId, _returns=SolvencyReport, _faults=[ClientNotFoundFault, ClientValidationError])
     def VerifySolvency(client_id):
         """
         VerifySolvency(clientId) -> SolvencyReport
@@ -85,7 +85,11 @@ class SolvencyVerificationService(SoaServiceBase):
             
         except ClientNotFoundFault:
             # Re-raise the fault from CRUD services
-            SoaServiceBase.log_error(f"Client not found during verification", client_id)
+            SoaServiceBase.log_error("Client not found during verification", client_id)
+            raise
+        except ClientValidationError:
+            # Re-raise validation errors
+            SoaServiceBase.log_error("Validation error during verification", client_id)
             raise
         except Exception as e:
             # Log unexpected errors

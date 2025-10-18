@@ -1,6 +1,7 @@
 import logging
 import uuid
 import os
+import re
 
 from spyne.application import Application
 # CRITICAL FIX: Use the standard WSGI application adapter for stability
@@ -8,6 +9,7 @@ from spyne.server.wsgi import WsgiApplication
 from spyne.protocol.soap import Soap11
 from spyne.service import ServiceBase
 from spyne.error import Fault
+from spyne.model.primitive import Unicode
 from twisted.web.server import Site
 from twisted.internet import reactor
 from twisted.web.resource import Resource
@@ -21,14 +23,45 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 # --- Custom Faults (Required by 5.1 & 5.2) ---
-
 class ClientNotFoundFault(Fault):
-    """5.1: SOAP Fault Client.NotFound"""
-    __faultcode__ = 'Client.NotFound'
+    __namespace__ = 'urn:solvency.verification.service:v1'
+    __type_name__ = 'ClientNotFoundFault'
+    
+    detail = Unicode
+    
+    def __init__(self, detail=None):
+        super(ClientNotFoundFault, self).__init__(
+            faultcode='Client.NotFound',
+            faultstring=detail or "Client not found"
+        )
+        
 
 class ClientValidationError(Fault):
-    """5.2: SOAP Fault Client.ValidationError (for code-level semantic checks)"""
-    __faultcode__ = 'Client.ValidationError'
+    __namespace__ = 'urn:solvency.verification.service:v1'
+    __type_name__ = 'ClientValidationError'
+    
+    detail = Unicode
+    
+    def __init__(self, detail=None):
+        super(ClientValidationError, self).__init__(
+            faultcode='Client.ValidationError', 
+            faultstring=detail or "Validation error"
+        )
+    
+
+# --- Helper Functions ---
+
+def validate_client_id(client_id):
+    """
+    Validates client ID against the XSD pattern: client-\d{3}
+    Raises ClientValidationError if invalid.
+    """
+    pattern = r'^client-\d{3}$'
+    if not re.match(pattern, client_id):
+        raise ClientValidationError(
+            faultstring=f"Invalid client ID format: '{client_id}'. "
+                       f"Expected pattern: client-XXX (where XXX is 3 digits)"
+        )
 
 # --- Base Service Class ---
 
