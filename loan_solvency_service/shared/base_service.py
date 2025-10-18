@@ -38,22 +38,18 @@ class SoaServiceBase(ServiceBase):
     Provides utility methods for logging and consistency.
     """
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Note: Correlation ID is usually generated per request, but this 
-        # is a placeholder for the service instance itself.
-        self.correlation_id = str(uuid.uuid4())
-        self.service_name = self.__class__.__name__
-
-    # Utility method for correlation logging
-    def log_info(self, message, client_id=None):
+    # CHANGED: Made logging methods static since @srpc methods don't have instances
+    @staticmethod
+    def log_info(message, client_id=None):
+        """Log info message with optional client_id tag"""
         cid_tag = f"[{client_id}]" if client_id else ""
-        logger.info(f"[CID:{self.correlation_id}] {self.service_name} {cid_tag}: {message}")
+        logger.info(f"{cid_tag}: {message}")
 
-    # Utility method for correlation logging
-    def log_error(self, message, client_id=None):
+    @staticmethod
+    def log_error(message, client_id=None):
+        """Log error message with optional client_id tag"""
         cid_tag = f"[{client_id}]" if client_id else ""
-        logger.error(f"[CID:{self.correlation_id}] {self.service_name} {cid_tag}: {message}")
+        logger.error(f"{cid_tag}: {message}")
 
 # --- Server Runner Utility (FIXED) ---
 
@@ -74,9 +70,11 @@ def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol
         out_protocol=soap_protocol(validator='lxml'), 
     )
     
-    # Wrap the Spyne Application in Twisted's WSGIResource
-    # This completely avoids the internal Spyne/Twisted module clash
-    wsgi_app = WSGIResource(reactor, reactor.getThreadPool(), application)
+    # FIXED: Wrap Spyne Application in WsgiApplication to make it WSGI-callable
+    wsgi_application = WsgiApplication(application)
+    
+    # Then wrap the WSGI application in Twisted's WSGIResource
+    wsgi_app = WSGIResource(reactor, reactor.getThreadPool(), wsgi_application)
     
     # Root Resource for general serving (including WSDL at ?wsdl)
     root = Resource()

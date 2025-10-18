@@ -86,7 +86,7 @@
                         <xsd:minLength value="1"/>
                     </xsd:restriction>
                 </xsd:simpleType>
-            </element>
+            </xsd:element>
         </xsd:sequence>
     </xsd:complexType>
 
