@@ -1,29 +1,31 @@
-# Dockerfile (at the project root)
+# Dockerfile_app
+# Used for all Python-based application services (Orchestrator, Business, CRUD)
 
 # 1. Base image (using python:3.10 as an example)
 FROM python:3.10-slim
 
-# 2. Set the working directory for the application inside the container
+# Set the working directory
 WORKDIR /usr/src/app
 
-# 3. Copy the dependency file and install dependencies (caching layer)
-# Note: You need a requirements file or a way to install dependencies from pyproject.toml
-COPY pyproject.toml .
-# Install UV inside the container to handle installation
+# 1. Install UV globally (used for dependency management)
 RUN pip install uv
-# Install the project's dependencies
-RUN uv pip install twisted lxml spyne sqlalchemy psycopg2-binary pydantic --system
 
-# 4. Copy the entire source code into the working directory
-# This includes the solvency_checker/ directory, contracts/, etc.
+# 2. Copy the dependency file and source structure necessary for editable install
+# This includes pyproject.toml and the root directory structure.
+# NOTE: The missing 'README.md' and the package directory error are likely due 
+# to the editable install not finding the source code hierarchy.
+COPY pyproject.toml .
+# Copy all source files BEFORE the editable install step
 COPY . .
 
-# 5. E-INSTALL THE PACKAGE INSIDE THE CONTAINER
-# This step creates the necessary .pth files so Python knows the location 
-# of your 'solvency_checker' package when running scripts from different directories.
+# 3. Install the project and its dependencies using the editable install option.
+# The '-e .' command reads pyproject.toml's [project].dependencies 
+# and enforces the pinned version (twisted==19.10.0).
+# We use --system because we are installing into the base image environment.
 RUN uv pip install -e . --system
-# The -e . command here should succeed because you fixed pyproject.toml earlier.
-# If you changed the package name to 'solvency_checker', the command remains -e .
 
-# 6. Command to run a specific service (this will be overridden in docker-compose)
-# CMD ["python3", "-m", "solvency_checker.services.orchestration.run_orchestrator"]
+
+# Expose the port where services will run (internal network port)
+EXPOSE 8000
+
+# CMD is defined in docker-compose.yml
