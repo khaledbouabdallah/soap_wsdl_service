@@ -42,7 +42,7 @@ class MetricsCollector:
             ['service']
         )
         
-        # **NEW: Cache metrics**
+        # Cache metrics
         self.prom_cache_hits = Counter(
             'soap_cache_hits_total',
             'Total number of cache hits',
@@ -66,6 +66,11 @@ class MetricsCollector:
             'Total number of cache evictions',
             ['service']
         )
+        
+        # **NEW: Track last values for delta calculation**
+        self._last_cache_hits = 0
+        self._last_cache_misses = 0
+        self._last_cache_evictions = 0
     
     def record_call(self, operation_name: str, latency_ms: float):
         """
@@ -95,14 +100,27 @@ class MetricsCollector:
         
         :param cache_stats: Dictionary from TTLCache.get_stats()
         """
-        # Update Prometheus gauges/counters
+        # Update cache size gauge (Gauge uses .set())
         self.prom_cache_size.labels(service=self.service_name).set(cache_stats['size'])
         
-        # Note: hits/misses/evictions are cumulative in cache_stats, 
-        # but Prometheus counters are also cumulative, so we set them directly
-        self.prom_cache_hits.labels(service=self.service_name)._value.set(cache_stats['hits'])
-        self.prom_cache_misses.labels(service=self.service_name)._value.set(cache_stats['misses'])
-        self.prom_cache_evictions.labels(service=self.service_name)._value.set(cache_stats['evictions'])
+        # **FIXED: Counters must be incremented, not set**
+        # Calculate deltas since last update
+        hits_delta = cache_stats['hits'] - self._last_cache_hits
+        misses_delta = cache_stats['misses'] - self._last_cache_misses
+        evictions_delta = cache_stats['evictions'] - self._last_cache_evictions
+        
+        # Increment counters by delta (Counter uses .inc())
+        if hits_delta > 0:
+            self.prom_cache_hits.labels(service=self.service_name).inc(hits_delta)
+        if misses_delta > 0:
+            self.prom_cache_misses.labels(service=self.service_name).inc(misses_delta)
+        if evictions_delta > 0:
+            self.prom_cache_evictions.labels(service=self.service_name).inc(evictions_delta)
+        
+        # Update last known values
+        self._last_cache_hits = cache_stats['hits']
+        self._last_cache_misses = cache_stats['misses']
+        self._last_cache_evictions = cache_stats['evictions']
     
     def get_metrics(self, cache_stats: Optional[Dict] = None) -> dict:
         """
@@ -122,7 +140,7 @@ class MetricsCollector:
                 "operations": {}
             }
             
-            # **NEW: Include cache stats if provided**
+            # Include cache stats if provided
             if cache_stats:
                 metrics["cache"] = cache_stats
                 self.update_cache_metrics(cache_stats)
@@ -181,7 +199,7 @@ class MetricsCollector:
             ""
         ]
         
-        # **NEW: Add cache summary**
+        # Add cache summary
         if "cache" in metrics:
             cache = metrics["cache"]
             lines.append("Cache Statistics:")

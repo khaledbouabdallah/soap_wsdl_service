@@ -7,8 +7,6 @@ scrape_configs:
   - job_name: 'solvency-orchestrator'
     static_configs:
       - targets: ['orchestrator:8000']
-        labels:
-          service: 'orchestrator'
     metrics_path: '/prometheus'
 
   # Business Logic service

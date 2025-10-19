@@ -123,11 +123,11 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(soap_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(soap_request_duration_seconds_bucket{service=\"SolvencyVerification\",operation=\"VerifySolvency\"}[5m])) by (le))",
           "refId": "A"
         }
       ],
-      "title": "P95 Latency (SLA: <300ms)",
+      "title": "P95 Client Latency (SLA: <300ms)",
       "type": "stat"
     },
     {
@@ -183,7 +183,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "100 * soap_cache_hits_total{service=\"SolvencyVerification\"} / (soap_cache_hits_total{service=\"SolvencyVerification\"} + soap_cache_misses_total{service=\"SolvencyVerification\"})",
+          "expr": "100 * sum(soap_cache_hits_total{service=\"SolvencyVerification\"}) / (sum(soap_cache_hits_total{service=\"SolvencyVerification\"}) + sum(soap_cache_misses_total{service=\"SolvencyVerification\"}))",
           "refId": "A"
         }
       ],
@@ -504,12 +504,12 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(soap_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(soap_request_duration_seconds_bucket{service=\"SolvencyVerification\"}[5m])))",
           "legendFormat": "{{operation}}",
           "refId": "A"
         }
       ],
-      "title": "P95 Latency by Operation (SLA: 300ms)",
+      "title": "P95 Latency - Client-Facing Operations",
       "type": "timeseries"
     },
     {
@@ -581,7 +581,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "100 * rate(soap_cache_hits_total{service=\"SolvencyVerification\"}[5m]) / (rate(soap_cache_hits_total{service=\"SolvencyVerification\"}[5m]) + rate(soap_cache_misses_total{service=\"SolvencyVerification\"}[5m]))",
+          "expr": "100 * sum(rate(soap_cache_hits_total{service=\"SolvencyVerification\"}[5m])) / (sum(rate(soap_cache_hits_total{service=\"SolvencyVerification\"}[5m])) + sum(rate(soap_cache_misses_total{service=\"SolvencyVerification\"}[5m])))",
           "legendFormat": "Cache Hit Rate",
           "refId": "A"
         }
@@ -689,12 +689,12 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "rate(soap_cache_hits_total{service=\"SolvencyVerification\"}[5m])",
+          "expr": "sum(rate(soap_cache_hits_total{service=\"SolvencyVerification\"}[5m]))",
           "legendFormat": "Hits",
           "refId": "A"
         },
         {
-          "expr": "rate(soap_cache_misses_total{service=\"SolvencyVerification\"}[5m])",
+          "expr": "sum(rate(soap_cache_misses_total{service=\"SolvencyVerification\"}[5m]))",
           "legendFormat": "Misses",
           "refId": "B"
         }
@@ -856,7 +856,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "soap_cache_evictions_total{service=\"SolvencyVerification\"}",
+          "expr": "sum(soap_cache_evictions_total{service=\"SolvencyVerification\"})",
           "legendFormat": "Evictions (LRU)",
           "refId": "A"
         }

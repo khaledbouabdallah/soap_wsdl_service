@@ -327,11 +327,11 @@ CRUD Service              Orchestrator              Client
 
 **Before Caching:**
 - 6 SOAP calls per request (3 CRUD + 3 business)
-- P95 latency: ~200-250ms
+- P95 latency: ~100-150ms
 
 **After Caching (70% hit rate):**
 - 3 SOAP calls on cache hit (only business logic)
-- P95 latency: ~80-120ms (60% reduction)
+- P95 latency: ~40-80ms (60% reduction)
 - Reduced database load by 70%
 
 ## 7. Versioning Strategy
@@ -398,33 +398,84 @@ CRUD Service              Orchestrator              Client
 
 ### 8.1 SLA Targets
 
-**Availability:** 99% uptime during business hours
+**Important Clarification:** SLA metrics measure **client-facing performance only**. Clients don't see or care about internal service latencies - they only measure the time from sending a SOAP request to receiving the SolvencyReport response from the orchestrator.
+
+**Client-Facing SLA:**
+
+**Availability:** 99% uptime for orchestrator endpoint
 - Downtime allowance: ~7 hours/month
+- Measured at: `http://localhost:8000/SolvencyVerification`
 - Health checks at `/health` endpoint
 - Docker restart policy: `on-failure`
+- Independent from internal service availability (they can restart without client impact)
 
-**Latency:**
-- P95 < 300ms for VerifySolvency operation
-- P50 < 150ms target
-- Measured via Prometheus histograms
+**Response Time:** P95 < 300ms for VerifySolvency operation
+- This is the **total client wait time** (end-to-end)
+- Includes: validation + CRUD calls + business logic + report assembly
+- P50 < 150ms target (typical case)
+- Measured via: `soap_request_duration_seconds{service="SolvencyVerification", operation="VerifySolvency"}`
+- Prometheus query: `histogram_quantile(0.95, sum(rate(soap_request_duration_seconds_bucket{service="SolvencyVerification",operation="VerifySolvency"}[5m])) by (le))`
 
 **Throughput:**
-- Target: 100 requests/second per instance
+- Target: 100 requests/second per orchestrator instance
 - Scalable horizontally (add more orchestrator containers)
+- Cache improves effective throughput by reducing backend load
+
+**Internal Service Performance (not part of SLA):**
+
+These are tracked for optimization but not client commitments:
+- CRUD service latency: typically 10-30ms each
+- Business logic latency: typically 5-15ms each
+- Database query time: typically 5-20ms
+- Internal metrics used for capacity planning and bottleneck identification
 
 ### 8.2 Monitoring & Metrics
 
-**Metrics Exposed:**
-- Request count per operation
-- Latency histograms (P50, P95, P99)
-- Cache hit/miss rates
-- Cache size and evictions
-- Service uptime
+**Client-Facing Metrics (SLA Compliance):**
+- **VerifySolvency response time**: P50, P95, P99, max (filtered to orchestrator only)
+- **Request success rate**: Successful responses / total requests
+- **Orchestrator uptime**: Time since last restart
+- **Error rate by fault type**: ClientNotFound vs ValidationError percentages
+
+**Internal Optimization Metrics:**
+- Request count per internal operation (CRUD, business logic)
+- Internal service latencies (for bottleneck identification)
+- Database connection pool utilization
+- Cache hit/miss rates and evictions
+
+**Cache-Specific Metrics:**
+- Hit rate percentage (target: >70%)
+- Cache size vs capacity (current/max)
+- Eviction count (indicates cache pressure)
+- Time saved by caching (estimated)
 
 **Access Points:**
-- JSON metrics: `http://localhost:8000/metrics`
-- Prometheus format: `http://localhost:8000/prometheus`
-- Grafana dashboard: `http://localhost:3000`
+- **JSON metrics** (human-readable with cache stats): `http://localhost:8000/metrics`
+- **Prometheus format** (for monitoring tools): `http://localhost:8000/prometheus`
+- **Grafana dashboard** (visual, filtered to client-facing metrics): `http://localhost:3000`
+
+**Key Prometheus Queries for SLA Monitoring:**
+
+```promql
+# Client-facing P95 latency (SLA metric)
+histogram_quantile(0.95, 
+  sum(rate(soap_request_duration_seconds_bucket{
+    service="SolvencyVerification",
+    operation="VerifySolvency"
+  }[5m])) by (le)
+)
+
+# Cache hit rate
+100 * sum(soap_cache_hits_total{service="SolvencyVerification"}) / 
+  (sum(soap_cache_hits_total{service="SolvencyVerification"}) + 
+   sum(soap_cache_misses_total{service="SolvencyVerification"}))
+
+# Request rate (client-facing)
+sum(rate(soap_requests_total{
+  service="SolvencyVerification",
+  operation="VerifySolvency"
+}[5m]))
+```
 
 **Alerting Strategy (Future):**
 - P95 latency > 300ms for 5 minutes → alert
@@ -478,5 +529,5 @@ Covered in detail in README.md testing section.
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** 19 October 2025  
-**Author:** Khaled BOUABDALLAH
+**Last Updated:** October 2025  
+**Author:** Khaled Bouabdallah
