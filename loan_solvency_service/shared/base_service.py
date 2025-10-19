@@ -7,7 +7,6 @@ import contextvars
 import json
 
 from spyne.application import Application
-# CRITICAL FIX: Use the standard WSGI application adapter for stability
 from spyne.server.wsgi import WsgiApplication 
 from spyne.protocol.soap import Soap11
 from spyne.service import ServiceBase
@@ -16,7 +15,6 @@ from spyne.model.primitive import Unicode
 from twisted.web.server import Site
 from twisted.internet import reactor
 from twisted.web.resource import Resource
-# We use Twisted's generic WSGI resource adapter
 from twisted.web.wsgi import WSGIResource 
 from twisted.internet import endpoints
 
@@ -96,7 +94,6 @@ class SoaServiceBase(ServiceBase):
     Provides utility methods for logging and consistency.
     """
     
-    # CHANGED: Made logging methods static since @srpc methods don't have instances
     @staticmethod
     def log_info(message, client_id=None):
         """Log info message with correlation ID and optional client_id tag"""
@@ -117,7 +114,7 @@ class SoaServiceBase(ServiceBase):
         metrics = get_metrics_collector()
         metrics.record_call(operation_name, latency_ms)
 
-# --- Server Runner Utility (FIXED) ---
+# --- Server Runner Utility ---
 
 def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol=Soap11, tns_suffix=""):
     """
@@ -133,27 +130,22 @@ def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol
     # 3.3: Protocol choice: SOAP 1.1
     # 3.3: Style: document/literal is the default for Spyne's Soap11/12
     application = Application(
-        service_classes, # Takes a list of service classes
+        service_classes,
         tns=f'urn:solvency.verification.service:v1{tns_suffix}',
         in_protocol=soap_protocol(validator='lxml'),
         out_protocol=soap_protocol(validator='lxml'), 
     )
     
-    # FIXED: Wrap Spyne Application in WsgiApplication to make it WSGI-callable
     wsgi_application = WsgiApplication(application)
-    
-    # Then wrap the WSGI application in Twisted's WSGIResource
     wsgi_app = WSGIResource(reactor, reactor.getThreadPool(), wsgi_application)
     
     # Root Resource for general serving (including WSDL at ?wsdl)
     root = Resource()
-    # The SOAP endpoint will be available at /interface_name
     root.putChild(interface_name.encode('utf-8'), wsgi_app)
     root.putChild(b"health", _HealthResource(interface_name))
-    root.putChild(b"metrics", _MetricsResource(interface_name))  # JSON metrics
-    root.putChild(b"prometheus", _PrometheusMetricsResource(interface_name))  # Prometheus metrics
+    root.putChild(b"metrics", _MetricsResource(interface_name))
+    root.putChild(b"prometheus", _PrometheusMetricsResource(interface_name))
     
-    # We must wrap the WSGIResource in a Site to manage the HTTP requests
     site = Site(root)
     
     logger.info(f"[{interface_name}] Starting SOAP server on port {port}...")
@@ -161,7 +153,6 @@ def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol
     logger.info(f"[{interface_name}] JSON Metrics available at http://localhost:{port}/metrics")
     logger.info(f"[{interface_name}] Prometheus Metrics available at http://localhost:{port}/prometheus")
     
-    # Use endpoints for modern Twisted TCP listening
     try:
         endpoint = endpoints.TCP4ServerEndpoint(reactor, port, interface=os.getenv("HOST", "0.0.0.0"))
         endpoint.listen(site)
@@ -181,7 +172,7 @@ class _HealthResource(Resource):
         return f"Service {self.service_name} is running and healthy.".encode('utf-8')
 
 
-# JSON Metrics endpoint
+# **UPDATED: JSON Metrics endpoint with cache stats**
 class _MetricsResource(Resource):
     """Expose QoS metrics in JSON format for monitoring."""
     isLeaf = True
@@ -191,14 +182,25 @@ class _MetricsResource(Resource):
     def render_GET(self, request):
         """Return metrics in JSON format."""
         metrics = get_metrics_collector()
-        metrics_data = metrics.get_metrics()
+        
+        # **NEW: Try to get cache stats if this is orchestrator**
+        cache_stats = None
+        if self.service_name == "SolvencyVerification":
+            try:
+                from loan_solvency_service.services.orchestration.SolvencyVerificationService import get_cache_instance
+                cache = get_cache_instance()
+                cache_stats = cache.get_stats()
+            except ImportError:
+                pass  # Cache not available on non-orchestrator services
+        
+        metrics_data = metrics.get_metrics(cache_stats)
         metrics_data["service_name"] = self.service_name
         
         request.setHeader(b"Content-Type", b"application/json")
         return json.dumps(metrics_data, indent=2).encode('utf-8')
 
 
-# NEW: Prometheus Metrics endpoint
+# Prometheus Metrics endpoint
 class _PrometheusMetricsResource(Resource):
     """Expose metrics in Prometheus format for scraping."""
     isLeaf = True
@@ -208,6 +210,17 @@ class _PrometheusMetricsResource(Resource):
     def render_GET(self, request):
         """Return metrics in Prometheus format."""
         metrics = get_metrics_collector()
+        
+        # **NEW: Update cache metrics if available**
+        if self.service_name == "SolvencyVerification":
+            try:
+                from loan_solvency_service.services.orchestration.SolvencyVerificationService import get_cache_instance
+                cache = get_cache_instance()
+                cache_stats = cache.get_stats()
+                metrics.update_cache_metrics(cache_stats)
+            except ImportError:
+                pass
+        
         prometheus_data = metrics.get_prometheus_metrics()
         
         content_type = get_prometheus_content_type()

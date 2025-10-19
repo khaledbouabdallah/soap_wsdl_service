@@ -1,7 +1,7 @@
 import time
 import threading
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Prometheus imports
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
@@ -12,6 +12,7 @@ class MetricsCollector:
     Thread-safe metrics collection for QoS monitoring.
     Tracks call counts and latencies per operation.
     Supports both JSON export and Prometheus format.
+    **ENHANCED: Now includes cache metrics tracking.**
     """
     
     def __init__(self, service_name="unknown"):
@@ -40,6 +41,31 @@ class MetricsCollector:
             'Service uptime in seconds',
             ['service']
         )
+        
+        # **NEW: Cache metrics**
+        self.prom_cache_hits = Counter(
+            'soap_cache_hits_total',
+            'Total number of cache hits',
+            ['service']
+        )
+        
+        self.prom_cache_misses = Counter(
+            'soap_cache_misses_total',
+            'Total number of cache misses',
+            ['service']
+        )
+        
+        self.prom_cache_size = Gauge(
+            'soap_cache_size',
+            'Current number of entries in cache',
+            ['service']
+        )
+        
+        self.prom_cache_evictions = Counter(
+            'soap_cache_evictions_total',
+            'Total number of cache evictions',
+            ['service']
+        )
     
     def record_call(self, operation_name: str, latency_ms: float):
         """
@@ -63,10 +89,26 @@ class MetricsCollector:
             operation=operation_name
         ).observe(latency_ms / 1000.0)  # Convert ms to seconds
     
-    def get_metrics(self) -> dict:
+    def update_cache_metrics(self, cache_stats: Dict):
+        """
+        Update cache-related metrics.
+        
+        :param cache_stats: Dictionary from TTLCache.get_stats()
+        """
+        # Update Prometheus gauges/counters
+        self.prom_cache_size.labels(service=self.service_name).set(cache_stats['size'])
+        
+        # Note: hits/misses/evictions are cumulative in cache_stats, 
+        # but Prometheus counters are also cumulative, so we set them directly
+        self.prom_cache_hits.labels(service=self.service_name)._value.set(cache_stats['hits'])
+        self.prom_cache_misses.labels(service=self.service_name)._value.set(cache_stats['misses'])
+        self.prom_cache_evictions.labels(service=self.service_name)._value.set(cache_stats['evictions'])
+    
+    def get_metrics(self, cache_stats: Optional[Dict] = None) -> dict:
         """
         Get current metrics snapshot in JSON format.
         
+        :param cache_stats: Optional cache statistics to include
         :return: Dictionary with metrics
         """
         with self._lock:
@@ -79,6 +121,11 @@ class MetricsCollector:
                 "uptime_seconds": uptime,
                 "operations": {}
             }
+            
+            # **NEW: Include cache stats if provided**
+            if cache_stats:
+                metrics["cache"] = cache_stats
+                self.update_cache_metrics(cache_stats)
             
             for operation_name in self._operation_counts:
                 latencies = self._operation_latencies[operation_name]
@@ -118,13 +165,14 @@ class MetricsCollector:
         
         return generate_latest()
     
-    def get_summary(self) -> str:
+    def get_summary(self, cache_stats: Optional[Dict] = None) -> str:
         """
         Get human-readable metrics summary.
         
+        :param cache_stats: Optional cache statistics to include
         :return: Formatted string with metrics
         """
-        metrics = self.get_metrics()
+        metrics = self.get_metrics(cache_stats)
         uptime = metrics["uptime_seconds"]
         
         lines = [
@@ -132,6 +180,16 @@ class MetricsCollector:
             f"Total Operations: {len(metrics['operations'])}",
             ""
         ]
+        
+        # **NEW: Add cache summary**
+        if "cache" in metrics:
+            cache = metrics["cache"]
+            lines.append("Cache Statistics:")
+            lines.append(f"  Size: {cache['size']}/{cache['max_size']}")
+            lines.append(f"  Hit Rate: {cache['hit_rate_percent']}%")
+            lines.append(f"  Hits: {cache['hits']}, Misses: {cache['misses']}")
+            lines.append(f"  Evictions: {cache['evictions']}")
+            lines.append("")
         
         for op_name, op_metrics in metrics["operations"].items():
             lines.append(f"{op_name}:")
