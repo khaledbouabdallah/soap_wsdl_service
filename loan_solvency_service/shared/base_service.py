@@ -21,7 +21,7 @@ from twisted.web.wsgi import WSGIResource
 from twisted.internet import endpoints
 
 # Import metrics collector
-from loan_solvency_service.shared.metrics import get_metrics_collector
+from loan_solvency_service.shared.metrics import get_metrics_collector, get_prometheus_content_type
 
 # Configure logging for the base service
 logging.basicConfig(level=logging.INFO,
@@ -85,7 +85,7 @@ def validate_client_id(client_id):
     if not re.match(pattern, client_id):
         raise ClientValidationError(
             detail=f"Invalid client ID format: '{client_id}'. "
-                       f"Expected pattern: client-XXX (where XXX is 3 digits)"
+                   f"Expected pattern: client-XXX (where XXX is 3 digits)"
         )
 
 # --- Base Service Class ---
@@ -127,6 +127,9 @@ def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol
     :param interface_name: A descriptive name for the service interface (used as the URL path).
     """
     
+    # Initialize metrics collector with service name
+    get_metrics_collector(interface_name)
+    
     # 3.3: Protocol choice: SOAP 1.1
     # 3.3: Style: document/literal is the default for Spyne's Soap11/12
     application = Application(
@@ -147,14 +150,16 @@ def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol
     # The SOAP endpoint will be available at /interface_name
     root.putChild(interface_name.encode('utf-8'), wsgi_app)
     root.putChild(b"health", _HealthResource(interface_name))
-    root.putChild(b"metrics", _MetricsResource(interface_name))  # NEW: Metrics endpoint
+    root.putChild(b"metrics", _MetricsResource(interface_name))  # JSON metrics
+    root.putChild(b"prometheus", _PrometheusMetricsResource(interface_name))  # Prometheus metrics
     
     # We must wrap the WSGIResource in a Site to manage the HTTP requests
     site = Site(root)
     
     logger.info(f"[{interface_name}] Starting SOAP server on port {port}...")
     logger.info(f"[{interface_name}] WSDL available at http://localhost:{port}/{interface_name}?wsdl")
-    logger.info(f"[{interface_name}] Metrics available at http://localhost:{port}/metrics")
+    logger.info(f"[{interface_name}] JSON Metrics available at http://localhost:{port}/metrics")
+    logger.info(f"[{interface_name}] Prometheus Metrics available at http://localhost:{port}/prometheus")
     
     # Use endpoints for modern Twisted TCP listening
     try:
@@ -176,9 +181,9 @@ class _HealthResource(Resource):
         return f"Service {self.service_name} is running and healthy.".encode('utf-8')
 
 
-# NEW: Metrics endpoint
+# JSON Metrics endpoint
 class _MetricsResource(Resource):
-    """Expose QoS metrics for monitoring."""
+    """Expose QoS metrics in JSON format for monitoring."""
     isLeaf = True
     def __init__(self, service_name):
         self.service_name = service_name
@@ -191,3 +196,20 @@ class _MetricsResource(Resource):
         
         request.setHeader(b"Content-Type", b"application/json")
         return json.dumps(metrics_data, indent=2).encode('utf-8')
+
+
+# NEW: Prometheus Metrics endpoint
+class _PrometheusMetricsResource(Resource):
+    """Expose metrics in Prometheus format for scraping."""
+    isLeaf = True
+    def __init__(self, service_name):
+        self.service_name = service_name
+    
+    def render_GET(self, request):
+        """Return metrics in Prometheus format."""
+        metrics = get_metrics_collector()
+        prometheus_data = metrics.get_prometheus_metrics()
+        
+        content_type = get_prometheus_content_type()
+        request.setHeader(b"Content-Type", content_type.encode('utf-8'))
+        return prometheus_data

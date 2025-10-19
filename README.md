@@ -1,6 +1,6 @@
 # Solvency Verification Service - SOAP/WSDL Implementation
 
-A microservices-based loan solvency verification system using SOAP/WSDL, implementing SOA principles with separate CRUD, business logic, and orchestration layers.
+A microservices-based loan solvency verification system using SOAP/WSDL, implementing SOA principles with separate CRUD, business logic, and orchestration layers. Includes production-grade monitoring with Prometheus and Grafana.
 
 ## Architecture Overview
 
@@ -8,8 +8,9 @@ A microservices-based loan solvency verification system using SOAP/WSDL, impleme
 - **CRUD Services**: Internal services for client data access (Identity, Financials, Credit History)
 - **Business Logic Services**: Internal computation services (Credit Scoring, Solvency Decision, Explanations)
 - **Database**: PostgreSQL for client data storage
+- **Monitoring**: Prometheus + Grafana for metrics collection and visualization
 
-All services communicate via SOAP. The orchestrator composes results from CRUD and business services.
+All services communicate via SOAP. The orchestrator composes results from CRUD and business services. Each request is tracked with correlation IDs and latency metrics.
 
 ## Prerequisites
 
@@ -22,11 +23,13 @@ All services communicate via SOAP. The orchestrator composes results from CRUD a
 ### 1. Start Services
 
 ```bash
-# Build and start all services
+# Build and start all services (including monitoring)
 docker-compose up --build
 
 # Services will be available at:
 # - Orchestrator (public): http://localhost:8000/SolvencyVerification
+# - Prometheus: http://localhost:9090
+# - Grafana: http://localhost:3000
 # - CRUD (internal): http://crud:8000/CRUDAccess
 # - Business (internal): http://business:8000/BusinessLogic
 ```
@@ -44,15 +47,28 @@ uv run python loan_solvency_service/shared/db_setup.py
 http://localhost:8000/SolvencyVerification?wsdl
 ```
 
-### 4. Check Service Health
+### 4. Check Service Health & Metrics
 
 ```bash
 # Health check
 curl http://localhost:8000/health
 
-# Metrics (QoS monitoring)
+# JSON Metrics (human-readable)
 curl http://localhost:8000/metrics
+
+# Prometheus Metrics (for monitoring)
+curl http://localhost:8000/prometheus
 ```
+
+### 5. Setup Monitoring (Optional but Recommended)
+
+See detailed setup in [docs/MONITORING_SETUP.md](docs/MONITORING_SETUP.md)
+
+Quick steps:
+1. Access Grafana at http://localhost:3000 (admin/admin)
+2. Add Prometheus data source: `http://prometheus:9090`
+3. Create dashboard or import pre-built panels
+4. Monitor real-time metrics and SLA compliance
 
 ## Test Data
 
@@ -153,10 +169,19 @@ solvent = (creditScore >= 700) AND (monthlyIncome > monthlyExpenses)
 
 - **Availability**: 99% uptime target
 - **Latency**: P95 < 300ms for VerifySolvency operation
-- **Monitoring**: Metrics exposed at `/metrics` endpoint with:
-  - Call counts per operation
-  - Average, min, max, P95 latency
-  - Service uptime
+- **Monitoring**: 
+  - Real-time metrics via Prometheus (15s scrape interval)
+  - Visual dashboards via Grafana
+  - Metrics exposed at `/metrics` (JSON) and `/prometheus` (Prometheus format)
+  - Historical data persisted in Docker volumes
+
+### Key Metrics Tracked
+- Request count per operation
+- Request latency (avg, min, max, P95)
+- Service uptime
+- Request rate over time
+
+All metrics are accessible in Grafana for real-time monitoring and historical analysis.
 
 ## Logging & Tracing
 
@@ -186,7 +211,33 @@ Both faults propagate from internal services to the client.
 - **SOAP Client**: Zeep 4.0+
 - **Web Server**: Twisted 22.8+
 - **Database**: PostgreSQL 18 + SQLAlchemy 2.0
+- **Monitoring**: Prometheus + Grafana
+- **Metrics**: prometheus-client
 - **Container**: Docker with docker-compose
+
+## Monitoring & Observability
+
+### Architecture
+```
+Services (Orchestrator, Business, CRUD)
+    ↓ expose /prometheus endpoint
+Prometheus (scrapes every 15s)
+    ↓ stores time-series data
+Grafana (visualizes)
+    ↓ dashboards & alerts
+```
+
+### Accessing Monitoring Tools
+- **Grafana Dashboard**: http://localhost:3000 (login: admin/admin)
+- **Prometheus UI**: http://localhost:9090
+- **Service Metrics**: http://localhost:8000/metrics (JSON) or /prometheus (Prometheus format)
+
+### Available Metrics
+1. `soap_requests_total` - Total requests per operation
+2. `soap_request_duration_seconds` - Request latency histogram (P50, P95, P99)
+3. `soap_service_uptime_seconds` - Service uptime
+
+For detailed monitoring setup, see [docs/MONITORING_SETUP.md](docs/MONITORING_SETUP.md)
 
 ## Project Structure
 
@@ -201,13 +252,17 @@ loan_solvency_service/
 │   ├── base_service.py    # Base class, faults, metrics
 │   ├── db_setup.py        # Database models & setup
 │   ├── soap_client.py     # Internal SOAP client wrapper
-│   └── metrics.py         # QoS metrics collection
+│   └── metrics.py         # QoS metrics (JSON + Prometheus)
 contracts/
 ├── SolvencyVerification.wsdl
 └── SolvencyDataTypes.xsd
 tests/
 ├── unit/
 └── integration/
+docs/
+└── MONITORING_SETUP.md    # Detailed Prometheus/Grafana guide
+prometheus.yml              # Prometheus scrape configuration
+docker-compose.yml          # All services (app + monitoring)
 ```
 
 ## Versioning Strategy
@@ -223,19 +278,24 @@ Current version: **v1** (namespace: `urn:solvency.verification.service:v1`)
 ## Limitations & Future Improvements
 
 ### Current Limitations
-- In-memory metrics (reset on restart)
 - No authentication/authorization (WS-Security)
 - No message-level encryption
 - Basic error messages
 
 ### Potential Improvements
 - **Security**: Implement WS-Security for authentication and encryption
-- **Persistence**: Store metrics in time-series database (Prometheus, InfluxDB)
-- **Monitoring**: Add Grafana dashboards for real-time monitoring
+- **Advanced Monitoring**: Add distributed tracing (Jaeger/Zipkin), alerting rules, custom Grafana dashboards
 - **Caching**: Cache CRUD results in orchestrator for repeated calls
 - **Load Balancing**: Add multiple instances with load balancer
 - **Circuit Breaker**: Implement fault tolerance patterns
 - **Async Processing**: Queue-based processing for high volume
+
+## Documentation
+
+- **Main README**: This file (getting started, overview)
+- **Monitoring Setup**: [docs/MONITORING_SETUP.md](docs/MONITORING_SETUP.md) (Prometheus + Grafana detailed guide)
+- **WSDL Contract**: [contracts/SolvencyVerification.wsdl](contracts/SolvencyVerification.wsdl)
+- **XSD Types**: [contracts/SolvencyDataTypes.xsd](contracts/SolvencyDataTypes.xsd)
 
 ## License
 

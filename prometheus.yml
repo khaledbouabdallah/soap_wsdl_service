@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 5s  # Scrape metrics every 5 seconds
+  evaluation_interval: 5s  # Evaluate rules every 5 seconds
+
+scrape_configs:
+  # Orchestrator service
+  - job_name: 'solvency-orchestrator'
+    static_configs:
+      - targets: ['orchestrator:8000']
+        labels:
+          service: 'orchestrator'
+    metrics_path: '/prometheus'
+
+  # Business Logic service
+  - job_name: 'solvency-business'
+    static_configs:
+      - targets: ['business:8000']
+        labels:
+          service: 'business'
+    metrics_path: '/prometheus'
+
+  # CRUD service
+  - job_name: 'solvency-crud'
+    static_configs:
+      - targets: ['crud:8000']
+        labels:
+          service: 'crud'
+    metrics_path: '/prometheus'

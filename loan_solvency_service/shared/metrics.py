@@ -3,18 +3,43 @@ import threading
 from collections import defaultdict
 from typing import Dict, List
 
+# Prometheus imports
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+
 
 class MetricsCollector:
     """
     Thread-safe metrics collection for QoS monitoring.
     Tracks call counts and latencies per operation.
+    Supports both JSON export and Prometheus format.
     """
     
-    def __init__(self):
+    def __init__(self, service_name="unknown"):
         self._lock = threading.Lock()
         self._operation_counts: Dict[str, int] = defaultdict(int)
         self._operation_latencies: Dict[str, List[float]] = defaultdict(list)
         self._start_time = time.time()
+        self.service_name = service_name
+        
+        # Prometheus metrics
+        self.prom_request_counter = Counter(
+            'soap_requests_total',
+            'Total number of SOAP requests',
+            ['service', 'operation']
+        )
+        
+        self.prom_request_latency = Histogram(
+            'soap_request_duration_seconds',
+            'SOAP request latency in seconds',
+            ['service', 'operation'],
+            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+        )
+        
+        self.prom_uptime = Gauge(
+            'soap_service_uptime_seconds',
+            'Service uptime in seconds',
+            ['service']
+        )
     
     def record_call(self, operation_name: str, latency_ms: float):
         """
@@ -26,16 +51,32 @@ class MetricsCollector:
         with self._lock:
             self._operation_counts[operation_name] += 1
             self._operation_latencies[operation_name].append(latency_ms)
+        
+        # Update Prometheus metrics
+        self.prom_request_counter.labels(
+            service=self.service_name,
+            operation=operation_name
+        ).inc()
+        
+        self.prom_request_latency.labels(
+            service=self.service_name,
+            operation=operation_name
+        ).observe(latency_ms / 1000.0)  # Convert ms to seconds
     
     def get_metrics(self) -> dict:
         """
-        Get current metrics snapshot.
+        Get current metrics snapshot in JSON format.
         
         :return: Dictionary with metrics
         """
         with self._lock:
+            uptime = time.time() - self._start_time
+            
+            # Update uptime gauge
+            self.prom_uptime.labels(service=self.service_name).set(uptime)
+            
             metrics = {
-                "uptime_seconds": time.time() - self._start_time,
+                "uptime_seconds": uptime,
                 "operations": {}
             }
             
@@ -65,6 +106,18 @@ class MetricsCollector:
             
             return metrics
     
+    def get_prometheus_metrics(self) -> bytes:
+        """
+        Get metrics in Prometheus format.
+        
+        :return: Prometheus metrics as bytes
+        """
+        # Update uptime before export
+        uptime = time.time() - self._start_time
+        self.prom_uptime.labels(service=self.service_name).set(uptime)
+        
+        return generate_latest()
+    
     def get_summary(self) -> str:
         """
         Get human-readable metrics summary.
@@ -92,9 +145,17 @@ class MetricsCollector:
 
 
 # Global metrics collector instance per service
-_metrics_collector = MetricsCollector()
+_metrics_collector = None
 
 
-def get_metrics_collector() -> MetricsCollector:
-    """Get the global metrics collector instance."""
+def get_metrics_collector(service_name="unknown") -> MetricsCollector:
+    """Get or create the global metrics collector instance."""
+    global _metrics_collector
+    if _metrics_collector is None:
+        _metrics_collector = MetricsCollector(service_name)
     return _metrics_collector
+
+
+def get_prometheus_content_type():
+    """Get Prometheus content type for HTTP response."""
+    return CONTENT_TYPE_LATEST
