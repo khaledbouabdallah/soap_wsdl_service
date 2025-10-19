@@ -412,7 +412,7 @@ CRUD Service              Orchestrator              Client
 **Response Time:** P95 < 300ms for VerifySolvency operation
 - This is the **total client wait time** (end-to-end)
 - Includes: validation + CRUD calls + business logic + report assembly
-- P50 < 150ms target (typical case)
+- P50 < 60ms target (typical case)
 - Measured via: `soap_request_duration_seconds{service="SolvencyVerification", operation="VerifySolvency"}`
 - Prometheus query: `histogram_quantile(0.95, sum(rate(soap_request_duration_seconds_bucket{service="SolvencyVerification",operation="VerifySolvency"}[5m])) by (le))`
 
@@ -430,6 +430,8 @@ These are tracked for optimization but not client commitments:
 - Internal metrics used for capacity planning and bottleneck identification
 
 ### 8.2 Monitoring & Metrics
+
+![grafana dashboard screenshot](../assets/grafana_screenshot.png)
 
 **Client-Facing Metrics (SLA Compliance):**
 - **VerifySolvency response time**: P50, P95, P99, max (filtered to orchestrator only)
@@ -453,6 +455,8 @@ These are tracked for optimization but not client commitments:
 - **JSON metrics** (human-readable with cache stats): `http://localhost:8000/metrics`
 - **Prometheus format** (for monitoring tools): `http://localhost:8000/prometheus`
 - **Grafana dashboard** (visual, filtered to client-facing metrics): `http://localhost:3000`
+
+
 
 **Key Prometheus Queries for SLA Monitoring:**
 

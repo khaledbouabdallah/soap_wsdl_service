@@ -139,6 +139,7 @@ Our testing approach follows a three-tier pyramid: unit tests (fast, isolated) â
 - Tests against running docker-compose services
 - Validates WSDL contract compliance
 - Verifies XML serialization/deserialization
+- SoapUI can also be used for testing, you can import this example project `assets/SolvencyVerification-wsdl-soapui-project.xml` to make a simple test request.
 
 ### Run All Tests
 

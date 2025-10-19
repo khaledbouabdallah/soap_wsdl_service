@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<con:soapui-project id="2b5fef3b-98c0-42f2-839c-931e5f80e9cf" activeEnvironment="Default" name="SolvencyVerification?wsdl" resourceRoot="" soapui-version="5.9.1" xmlns:con="http://eviware.com/soapui/config"><con:settings/><con:interface xsi:type="con:WsdlInterface" id="82e619f8-f2b5-4b4b-b38e-dd13c13b31bd" wsaVersion="NONE" name="Application" type="wsdl" bindingName="{urn:solvency.verification.service:v1}Application" soapVersion="1_1" anonymous="optional" definition="http://localhost:8000/SolvencyVerification?wsdl" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:settings/><con:definitionCache type="TEXT" rootPart="http://localhost:8000/SolvencyVerification?wsdl"><con:part><con:url>http://localhost:8000/SolvencyVerification?wsdl</con:url><con:content><![CDATA[<wsdl:definitions targetNamespace="urn:solvency.verification.service:v1" name="Application" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:plink="http://schemas.xmlsoap.org/ws/2003/05/partner-link/" xmlns:wsdlsoap11="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:wsdlsoap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap11enc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:soap11env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:soap12env="http://www.w3.org/2003/05/soap-envelope" xmlns:soap12enc="http://www.w3.org/2003/05/soap-encoding" xmlns:wsa="http://schemas.xmlsoap.org/ws/2003/03/addressing" xmlns:xop="http://www.w3.org/2004/08/xop/include" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:tns="urn:solvency.verification.service:v1" xmlns:s0="urn:solvency.verification.service:datatypes:v1">
+  <wsdl:types>
+    <xs:schema targetNamespace="urn:solvency.verification.service:v1" elementFormDefault="qualified">
+      <xs:import namespace="urn:solvency.verification.service:datatypes:v1"/>
+      <xs:complexType name="ClientNotFoundFault">
+        <xs:sequence>
+          <xs:element name="detail" type="xs:string" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="ClientValidationError">
+        <xs:sequence>
+          <xs:element name="detail" type="xs:string" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="VerifySolvency">
+        <xs:sequence>
+          <xs:element name="client_id" type="xs:string" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="VerifySolvencyResponse">
+        <xs:sequence>
+          <xs:element name="VerifySolvencyResult" type="s0:SolvencyReport" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:element name="ClientNotFoundFault" type="tns:ClientNotFoundFault"/>
+      <xs:element name="ClientValidationError" type="tns:ClientValidationError"/>
+      <xs:element name="VerifySolvency" type="tns:VerifySolvency"/>
+      <xs:element name="VerifySolvencyResponse" type="tns:VerifySolvencyResponse"/>
+    </xs:schema>
+    <xs:schema targetNamespace="urn:solvency.verification.service:datatypes:v1" elementFormDefault="qualified">
+      <xs:complexType name="ClientIdentity">
+        <xs:sequence>
+          <xs:element name="name" type="xs:string" minOccurs="0" nillable="true"/>
+          <xs:element name="address" type="xs:string" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="CreditHistory">
+        <xs:sequence>
+          <xs:element name="debt" type="xs:decimal" minOccurs="0" nillable="true"/>
+          <xs:element name="late_payments" type="xs:integer" minOccurs="0" nillable="true"/>
+          <xs:element name="has_bankruptcy" type="xs:boolean" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="Explanations">
+        <xs:sequence>
+          <xs:element name="credit_score_explanation" type="xs:string" minOccurs="0" nillable="true"/>
+          <xs:element name="income_vs_expenses_explanation" type="xs:string" minOccurs="0" nillable="true"/>
+          <xs:element name="credit_history_explanation" type="xs:string" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="Financials">
+        <xs:sequence>
+          <xs:element name="monthly_income" type="xs:decimal" minOccurs="0" nillable="true"/>
+          <xs:element name="monthly_expenses" type="xs:decimal" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:simpleType name="SolvencyStatus_statusType">
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="solvent"/>
+          <xs:enumeration value="not_solvent"/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:complexType name="SolvencyStatus">
+        <xs:sequence>
+          <xs:element name="status" type="s0:SolvencyStatus_statusType" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:complexType name="SolvencyReport">
+        <xs:sequence>
+          <xs:element name="client_identity" type="s0:ClientIdentity" minOccurs="0" nillable="true"/>
+          <xs:element name="financials" type="s0:Financials" minOccurs="0" nillable="true"/>
+          <xs:element name="credit_history" type="s0:CreditHistory" minOccurs="0" nillable="true"/>
+          <xs:element name="credit_score" type="xs:integer" minOccurs="0" nillable="true"/>
+          <xs:element name="solvency_status" type="s0:SolvencyStatus" minOccurs="0" nillable="true"/>
+          <xs:element name="explanations" type="s0:Explanations" minOccurs="0" nillable="true"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:element name="ClientIdentity" type="s0:ClientIdentity"/>
+      <xs:element name="CreditHistory" type="s0:CreditHistory"/>
+      <xs:element name="Explanations" type="s0:Explanations"/>
+      <xs:element name="Financials" type="s0:Financials"/>
+      <xs:element name="SolvencyStatus" type="s0:SolvencyStatus"/>
+      <xs:element name="SolvencyReport" type="s0:SolvencyReport"/>
+    </xs:schema>
+  </wsdl:types>
+  <wsdl:message name="VerifySolvency">
+    <wsdl:part name="VerifySolvency" element="tns:VerifySolvency"/>
+  </wsdl:message>
+  <wsdl:message name="VerifySolvencyResponse">
+    <wsdl:part name="VerifySolvencyResponse" element="tns:VerifySolvencyResponse"/>
+  </wsdl:message>
+  <wsdl:message name="ClientNotFoundFault">
+    <wsdl:part name="ClientNotFoundFault" element="tns:ClientNotFoundFault"/>
+  </wsdl:message>
+  <wsdl:message name="ClientValidationError">
+    <wsdl:part name="ClientValidationError" element="tns:ClientValidationError"/>
+  </wsdl:message>
+  <wsdl:service name="SolvencyVerificationService">
+    <wsdl:port name="Application" binding="tns:Application">
+      <wsdlsoap11:address location="http://localhost:8000/SolvencyVerification"/>
+    </wsdl:port>
+  </wsdl:service>
+  <wsdl:portType name="Application">
+    <wsdl:operation name="VerifySolvency" parameterOrder="VerifySolvency">
+      <wsdl:documentation>VerifySolvency(clientId) -> SolvencyReport
+        
+        Main entry point: orchestrates all services to verify client solvency.</wsdl:documentation>
+      <wsdl:input name="VerifySolvency" message="tns:VerifySolvency"/>
+      <wsdl:output name="VerifySolvencyResponse" message="tns:VerifySolvencyResponse"/>
+      <wsdl:fault name="ClientNotFoundFault" message="tns:ClientNotFoundFault"/>
+      <wsdl:fault name="ClientValidationError" message="tns:ClientValidationError"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="Application" type="tns:Application">
+    <wsdlsoap11:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="VerifySolvency">
+      <wsdlsoap11:operation soapAction="VerifySolvency" style="document"/>
+      <wsdl:input name="VerifySolvency">
+        <wsdlsoap11:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="VerifySolvencyResponse">
+        <wsdlsoap11:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="ClientNotFoundFault">
+        <wsdlsoap11:fault name="ClientNotFoundFault" use="literal"/>
+      </wsdl:fault>
+      <wsdl:fault name="ClientValidationError">
+        <wsdlsoap11:fault name="ClientValidationError" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:binding>
+</wsdl:definitions>]]></con:content><con:type>http://schemas.xmlsoap.org/wsdl/</con:type></con:part></con:definitionCache><con:endpoints><con:endpoint>http://localhost:8000/SolvencyVerification</con:endpoint></con:endpoints><con:operation id="9e60fd4a-0337-474b-b092-7bf949a96b9f" isOneWay="false" action="VerifySolvency" name="VerifySolvency" bindingOperationName="VerifySolvency" type="Request-Response" outputName="VerifySolvencyResponse" inputName="VerifySolvency" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="42c94131-d7f6-4644-bcef-ded2b5d0fc9c" name="Request 1"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>http://localhost:8000/SolvencyVerification</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:solvency.verification.service:v1">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <urn:VerifySolvency>
+         <!--Optional:-->
+         <urn:client_id>client-003</urn:client_id>
+      </urn:VerifySolvency>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="VerifySolvency"/><con:wsrmConfig version="1.2"/></con:call></con:operation></con:interface><con:properties/><con:wssContainer/><con:oAuth2ProfileContainer/><con:oAuth1ProfileContainer/></con:soapui-project>

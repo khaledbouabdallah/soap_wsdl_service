@@ -173,34 +173,6 @@ done
 2. Check Prometheus targets: http://localhost:9090/targets
 3. Query metrics directly: http://localhost:8000/prometheus
 
-## Troubleshooting
-
-### Prometheus not scraping services
-
-1. Check Prometheus targets: http://localhost:9090/targets
-2. All targets should show "UP" status
-3. If DOWN, check:
-   - Services are running: `docker-compose ps`
-   - Network connectivity: `docker exec prometheus ping orchestrator`
-
-### Grafana not showing data
-
-1. Verify Prometheus data source is configured correctly
-2. Check query syntax in panel settings
-3. Ensure time range is appropriate (last 15 minutes)
-
-### No metrics showing
-
-1. Generate some test traffic (see "Testing the Monitoring" section)
-2. Check if services are exposing metrics:
-   ```bash
-   curl http://localhost:8000/prometheus
-   ```
-3. Check Prometheus scrape config:
-   ```bash
-   docker exec prometheus cat /etc/prometheus/prometheus.yml
-   ```
-
 ## Persistence
 
 All data is persisted in Docker volumes:
@@ -219,76 +191,6 @@ docker-compose down
 
 # Remove all data (WARNING: deletes all metrics and dashboards)
 docker-compose down -v
-```
-
-## SLA Monitoring
-
-### Target SLA: P95 Latency < 300ms
-
-Create an alert in Grafana:
-
-1. Edit the P95 Latency panel
-2. Go to **Alert** tab
-3. Create new alert rule:
-   - Condition: `WHEN avg() OF query(A, 5m, now) IS ABOVE 0.3`
-   - Alert name: "High Latency - SLA Violation"
-   - Message: "P95 latency exceeded 300ms target"
-
-### Target SLA: 99% Availability
-
-Create uptime alert:
-
-1. Create new panel with query:
-   ```promql
-   avg_over_time(up{job=~"solvency.*"}[5m]) < 0.99
-   ```
-2. Add alert when condition triggers
-3. Message: "Service availability below 99%"
-
-## Advanced: Custom Dashboard Template
-
-Create a more sophisticated dashboard with these panels:
-
-### Row 1: Overview
-- Total Requests (Stat)
-- Success Rate (Gauge)
-- Average Latency (Stat)
-- P95 Latency (Stat with threshold alert)
-
-### Row 2: Request Patterns
-- Request Rate by Service (Graph)
-- Request Rate by Operation (Graph)
-- Request Distribution (Pie Chart)
-
-### Row 3: Performance
-- Latency Heatmap (Heatmap)
-- Latency by Operation (Graph)
-- Slowest Operations (Table)
-
-### Row 4: Service Health
-- Service Uptime (Stat)
-- Error Rate (Graph)
-- Service Status (Stat with health indicators)
-
-## Integration with CI/CD
-
-You can query Prometheus programmatically:
-
-```bash
-# Check if P95 latency is within SLA
-curl -G 'http://localhost:9090/api/v1/query' \
-  --data-urlencode 'query=histogram_quantile(0.95, rate(soap_request_duration_seconds_bucket[5m]))' \
-  | jq '.data.result[0].value[1]'
-
-# Fail build if latency > 300ms
-LATENCY=$(curl -G 'http://localhost:9090/api/v1/query' \
-  --data-urlencode 'query=histogram_quantile(0.95, rate(soap_request_duration_seconds_bucket[5m]))' \
-  | jq -r '.data.result[0].value[1]')
-
-if (( $(echo "$LATENCY > 0.3" | bc -l) )); then
-  echo "SLA violation: P95 latency ${LATENCY}s exceeds 300ms"
-  exit 1
-fi
 ```
 
 ## Useful Resources
