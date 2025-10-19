@@ -816,6 +816,7 @@ dependencies = [
     { name = "spyne" },
     { name = "sqlalchemy" },
     { name = "twisted" },
+    { name = "zeep" },
 ]
 
 [package.optional-dependencies]
@@ -824,7 +825,6 @@ dev = [
     { name = "isort" },
     { name = "mypy" },
     { name = "pytest" },
-    { name = "zeep" },
 ]
 
 [package.metadata]
@@ -839,7 +839,7 @@ requires-dist = [
     { name = "spyne", specifier = ">=2.14.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "twisted", specifier = ">=22.8.0" },
-    { name = "zeep", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "zeep", specifier = ">=4.0.0" },
 ]
 provides-extras = ["dev"]
 

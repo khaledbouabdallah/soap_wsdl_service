@@ -2,6 +2,9 @@ import logging
 import uuid
 import os
 import re
+import time
+import contextvars
+import json
 
 from spyne.application import Application
 # CRITICAL FIX: Use the standard WSGI application adapter for stability
@@ -17,10 +20,16 @@ from twisted.web.resource import Resource
 from twisted.web.wsgi import WSGIResource 
 from twisted.internet import endpoints
 
+# Import metrics collector
+from loan_solvency_service.shared.metrics import get_metrics_collector
+
 # Configure logging for the base service
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Context variable for correlation ID (thread-safe)
+correlation_id_context = contextvars.ContextVar('correlation_id', default=None)
 
 # --- Custom Faults (Required by 5.1 & 5.2) ---
 class ClientNotFoundFault(Fault):
@@ -51,6 +60,22 @@ class ClientValidationError(Fault):
 
 # --- Helper Functions ---
 
+def generate_correlation_id():
+    """Generate a unique correlation ID for request tracing."""
+    return str(uuid.uuid4())
+
+def get_correlation_id():
+    """Get the current correlation ID from context."""
+    cid = correlation_id_context.get()
+    if cid is None:
+        cid = generate_correlation_id()
+        correlation_id_context.set(cid)
+    return cid
+
+def set_correlation_id(cid):
+    """Set the correlation ID in context."""
+    correlation_id_context.set(cid)
+
 def validate_client_id(client_id):
     """
     Validates client ID against the XSD pattern: client-\d{3}
@@ -74,15 +99,23 @@ class SoaServiceBase(ServiceBase):
     # CHANGED: Made logging methods static since @srpc methods don't have instances
     @staticmethod
     def log_info(message, client_id=None):
-        """Log info message with optional client_id tag"""
-        cid_tag = f"[{client_id}]" if client_id else ""
-        logger.info(f"{cid_tag}: {message}")
+        """Log info message with correlation ID and optional client_id tag"""
+        cid = get_correlation_id()
+        client_tag = f"[{client_id}]" if client_id else ""
+        logger.info(f"[{cid}]{client_tag}: {message}")
 
     @staticmethod
     def log_error(message, client_id=None):
-        """Log error message with optional client_id tag"""
-        cid_tag = f"[{client_id}]" if client_id else ""
-        logger.error(f"{cid_tag}: {message}")
+        """Log error message with correlation ID and optional client_id tag"""
+        cid = get_correlation_id()
+        client_tag = f"[{client_id}]" if client_id else ""
+        logger.error(f"[{cid}]{client_tag}: {message}")
+    
+    @staticmethod
+    def record_metrics(operation_name, latency_ms):
+        """Record operation metrics."""
+        metrics = get_metrics_collector()
+        metrics.record_call(operation_name, latency_ms)
 
 # --- Server Runner Utility (FIXED) ---
 
@@ -113,13 +146,15 @@ def start_spyne_server(service_classes, interface_name, port=8000, soap_protocol
     root = Resource()
     # The SOAP endpoint will be available at /interface_name
     root.putChild(interface_name.encode('utf-8'), wsgi_app)
-    root.putChild(b"health", _HealthResource(interface_name)) # Keep the health check
+    root.putChild(b"health", _HealthResource(interface_name))
+    root.putChild(b"metrics", _MetricsResource(interface_name))  # NEW: Metrics endpoint
     
     # We must wrap the WSGIResource in a Site to manage the HTTP requests
     site = Site(root)
     
     logger.info(f"[{interface_name}] Starting SOAP server on port {port}...")
     logger.info(f"[{interface_name}] WSDL available at http://localhost:{port}/{interface_name}?wsdl")
+    logger.info(f"[{interface_name}] Metrics available at http://localhost:{port}/metrics")
     
     # Use endpoints for modern Twisted TCP listening
     try:
@@ -139,3 +174,20 @@ class _HealthResource(Resource):
     def render_GET(self, request):
         request.setHeader(b"Content-Type", b"text/plain")
         return f"Service {self.service_name} is running and healthy.".encode('utf-8')
+
+
+# NEW: Metrics endpoint
+class _MetricsResource(Resource):
+    """Expose QoS metrics for monitoring."""
+    isLeaf = True
+    def __init__(self, service_name):
+        self.service_name = service_name
+    
+    def render_GET(self, request):
+        """Return metrics in JSON format."""
+        metrics = get_metrics_collector()
+        metrics_data = metrics.get_metrics()
+        metrics_data["service_name"] = self.service_name
+        
+        request.setHeader(b"Content-Type", b"application/json")
+        return json.dumps(metrics_data, indent=2).encode('utf-8')

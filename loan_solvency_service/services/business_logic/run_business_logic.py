@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def run_business_logic_services(port=8001):
+def run_business_logic_services(port=8000):
     """
     Starts the container that hosts all three business logic services.
     These are internal services used by the orchestrator.
