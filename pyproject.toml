@@ -1,7 +1,8 @@
 [project]
 name = "soap-wsdl-service"
 version = "0.1.0"
-description = "Add your description here"
+description = "Mini project implementing a SOAP web service for loan solvency checking."
+authors = [{name = "Khaled BOUABDALLAH", email = "bouabdallah.khaled@yahoo.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["lxml>=6.0.2",

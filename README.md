@@ -268,7 +268,7 @@ uv run pytest tests/ -v --cov --cov-report=html
 docker-compose down
 ```
 
-For detailed architecture and design decisions, see [ARCHITECTURE.md](ARCHITECTURE.md)
+For detailed architecture and design decisions, see [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Business Logic
 
@@ -368,6 +368,8 @@ curl http://localhost:8000/prometheus
 # Grafana dashboard (visual)
 open http://localhost:3000  # login: admin/admin
 ```
+
+For a visual view, you can check **[MONITORING_SETUP.md](docs/MONITORING_SETUP.md)**
 
 ### Key Metrics Tracked
 
@@ -521,6 +523,7 @@ Current version: **v1** (namespace: `urn:solvency.verification.service:v1`)
   - Caching implementation details
   - Versioning strategy for V2 evolution
   - QoS targets and monitoring approach
+- **[MONITORING_SETUP.md](docs/MONITORING_SETUP.md)**: Detailed guide on how to setup Grafena dashboard.
   
 - **[contracts/SolvencyVerification.wsdl](contracts/SolvencyVerification.wsdl)**: SOAP service contract
 - **[contracts/SolvencyDataTypes.xsd](contracts/SolvencyDataTypes.xsd)**: XML schema definitions
@@ -594,6 +597,7 @@ tests/                            # Test suites
     └── test_soap_client.py
 docs/                             # Documentation
 └── ARCHITECTURE.md               # Technical architecture doc
+└── MONITORING_SETUP.md           # Monitoring setup guide
 docker-compose.yml                # Multi-container orchestration
 prometheus.yml                    # Prometheus configuration
 grafana-dashboard.json            # Grafana dashboard template
